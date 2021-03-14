@@ -1,5 +1,9 @@
-WIDTH       =    640
-HEIGHT      =    480
-AVG_FRAME   =    30                # Defines the number of sample frames                                  
-THES_ACC    =    0.00001           # Defines the accuracy of threshold                                    
-IGN_DEPTH   =    0.002             # Defines how long depth to ignore
+WIDTH           =    640
+HEIGHT          =    480
+FIX_WIDTH       =    600
+FIX_HEIGHT      =    480
+AVG_FRAME       =    30                # Defines the number of sample frames                                                        
+LOW_CUT_DEPTH   =    50                # low cut under 50mm error   
+HIGH_CUT_DEPTH  =    500               # high cut over 50cm error
+EPS             =    10                # eps of DBSCAN
+MIN_SAMPLES     =    8                 # min samples of DBSCAN
