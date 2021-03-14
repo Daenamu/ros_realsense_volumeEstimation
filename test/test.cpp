@@ -224,6 +224,14 @@ int main(int argc, char **argv)
         }
     }
 
+    // convert to bw image
+    uint8_t *buffer = new uint8_t[width*height];
+    for (int i = 0; i < width; i++) {
+        for (int j = 0; j < height; j++) {
+            buffer[height*i + j] = (depth_array[i][j] == 0) ? 0 : 255;
+        }
+    }
+
     // Stop the pipeline streaming
     rs2_pipeline_stop(pipeline, &e);
     check_error(e);
