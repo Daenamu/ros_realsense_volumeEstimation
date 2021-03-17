@@ -1,9 +1,5 @@
 WIDTH           =    640
 HEIGHT          =    480
-FIX_WIDTH       =    600
-FIX_HEIGHT      =    480
 AVG_FRAME       =    30                # Defines the number of sample frames                                                        
-LOW_CUT_DEPTH   =    50                # low cut under 50mm error   
+LOW_CUT_DEPTH   =    50                # low cut under 40mm error   
 HIGH_CUT_DEPTH  =    500               # high cut over 50cm error
-EPS             =    10                # eps of DBSCAN
-MIN_SAMPLES     =    8                 # min samples of DBSCAN

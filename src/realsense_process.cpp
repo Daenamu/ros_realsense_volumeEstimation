@@ -82,7 +82,8 @@ int main(int argc, char **argv) {
         append /= 10;
     }
 
-    printf("쓰레숄드: %f meters\n", min_thes);
+    printf("The camera is facing an object %f meters away\n", frame[WIDTH/2][HEIGHT/2]);
+    printf("Threshold: %f meters\n", min_thes);
 
 
     // Filtering low or high values
