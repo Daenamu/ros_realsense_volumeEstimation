@@ -10,13 +10,15 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include <vector>
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                     These parameters are reconfigurable                                        //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define STREAM          RS2_STREAM_DEPTH  // rs2_stream is a types of data provided by RealSense device           //
 #define FORMAT          RS2_FORMAT_Z16    // rs2_format identifies how binary data is encoded within a frame      //
 #define WIDTH           640               // Defines the number of columns for each frame or zero for auto resolve//
-#define HEIGHT          0                 // Defines the number of lines for each frame or zero for auto resolve  //
+#define HEIGHT          480               // Defines the number of lines for each frame or zero for auto resolve  //
 #define FPS             30                // Defines the rate of frames per second                                //
 #define STREAM_INDEX    0                 // Defines the stream index, used for multiple streams of the same type //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -50,7 +52,6 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "realsense_depth_node");
     ros::NodeHandle nh;
     ros::Publisher pub = nh.advertise<realsense_depth::depth_msg>("realsense_depth_msg", 100);
-    ros::Rate loop_rate(10);
     realsense_depth::depth_msg msg;
 
     rs2_error* e = 0;
@@ -113,9 +114,7 @@ int main(int argc, char **argv)
         int num_of_frames = rs2_embedded_frames_count(frames, &e);
         check_error(e);
 
-        int i;
-        float min, max, dist;
-        for (i = 0; i < num_of_frames; ++i)
+        for (int i = 0; i < num_of_frames; ++i)
         {
             // The retunred object should be released with rs2_release_frame(...)
             rs2_frame* frame = rs2_extract_frame(frames, i, &e);
@@ -132,32 +131,14 @@ int main(int argc, char **argv)
             int height = rs2_get_frame_height(frame, &e);
             check_error(e);
 
-            min = 1000000;
-            max = 0;
+            msg.data.clear();
 
-            for (int k = width / 2 - 50; k < width / 2 + 50; k++) {
-                float dist_to_center = rs2_depth_frame_get_distance(frame, k, height / 2, &e);
-                check_error(e);
-                if (min > dist_to_center && dist_to_center > 0.20) {
-                    min = dist_to_center;
-                }
-                if (max < dist_to_center) {
-                    max = dist_to_center;
-                }
-                if (k == width / 2) {
-                    dist = dist_to_center;
+            for (int j = 0; j < WIDTH; j++) {
+                for (int k = 0; k < HEIGHT; k++) {
+                    msg.data.push_back(rs2_depth_frame_get_distance(frame, j, k, &e));
                 }
             }
             
-
-            // Print the distance
-            printf("The camera is facing an object %.3f meters away.\n", dist);
-            msg.data = dist;
-
-            printf("Max depth: %.3f\n", max);
-            printf("Min depth: %.3f\n", min);
-            printf("difference : %.3f\n\n", max - min);
-
             pub.publish(msg);
 
             rs2_release_frame(frame);

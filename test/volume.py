@@ -136,7 +136,7 @@ try:
     avg_frame = numpy.subtract(avg_frame, min_thes)
 
     # show +- 0.5m range from threshold
-    # visualize_histogram(-500, 500, 1, avg_frame.flatten())
+    visualize_histogram(-500, 500, 1, avg_frame.flatten())
 
     # convert to points
     point_array = {'x': [], 'y': []}

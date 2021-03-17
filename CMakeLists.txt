@@ -11,7 +11,11 @@ find_package(realsense2 REQUIRED)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
-add_message_files(FILES depth_msg.msg)
+add_message_files(
+  FILES
+  center_depth_msg.msg 
+  depth_msg.msg
+)
 
 generate_messages(DEPENDENCIES std_msgs)
 
@@ -26,8 +30,21 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(${PROJECT_NAME}_node src/realsense_depth_node.cpp)
-add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME}_node
+add_executable(realsense_center_depth src/realsense_center_depth.cpp)
+add_dependencies(realsense_center_depth ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(realsense_center_depth
   ${catkin_LIBRARIES} ${realsense2_LIBRARY}
 )
+
+add_executable(realsense_depth src/realsense_depth.cpp)
+add_dependencies(realsense_depth ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(realsense_depth
+  ${catkin_LIBRARIES} ${realsense2_LIBRARY}
+)
+
+add_executable(realsense_process src/realsense_process.cpp)
+add_dependencies(realsense_process ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(realsense_process
+  ${catkin_LIBRARIES} ${realsense2_LIBRARY}
+)
+

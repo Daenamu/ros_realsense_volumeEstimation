@@ -1,3 +1,6 @@
+#include "ros/ros.h"
+#include "realsense_depth/center_depth_msg.h"
+
 #include <librealsense2/rs.h>
 #include <librealsense2/h/rs_pipeline.h>
 #include <librealsense2/h/rs_option.h>
@@ -16,9 +19,6 @@
 #define HEIGHT          0                 // Defines the number of lines for each frame or zero for auto resolve  //
 #define FPS             30                // Defines the rate of frames per second                                //
 #define STREAM_INDEX    0                 // Defines the stream index, used for multiple streams of the same type //
-#define AVG_FRAME       30                // Defines the number of sample frames                                  //
-#define THES_ACC        0.00001           // Defines the accuracy of threshold                                    //
-#define IGN_DEPTH       0.002             // Defines how long depth to ignore                                     //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -47,6 +47,12 @@ void print_device_info(rs2_device* dev)
 
 int main(int argc, char **argv)
 {
+    ros::init(argc, argv, "realsense_depth_node");
+    ros::NodeHandle nh;
+    ros::Publisher pub = nh.advertise<realsense_depth::center_depth_msg>("realsense_center_depth_msg", 100);
+    ros::Rate loop_rate(10);
+    realsense_depth::center_depth_msg msg;
+
     rs2_error* e = 0;
 
     // Create a context object. This object owns the handles to all connected realsense devices.
@@ -95,43 +101,7 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    rs2_stream_profile_list* stream_profile_list = rs2_pipeline_profile_get_streams(pipeline_profile, &e);
-    if (e)
-    {
-        printf("Failed to create stream profile list!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    rs2_stream_profile* stream_profile = (rs2_stream_profile*)rs2_get_stream_profile(stream_profile_list, 0, &e);
-    if (e)
-    {
-        printf("Failed to create stream profile!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    int width; int height;
-    rs2_get_video_stream_resolution(stream_profile, &width, &height, &e);
-    if (e)
-    {
-        printf("Failed to get video stream resolution data!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    float** depth_array = new float*[width];
-    for (int i = 0; i < width; i++) {
-        depth_array[i] = new float[height];
-    }
-    for (int i = 0; i < width; i++) {
-        for (int j = 0; j < height; j++) {
-            depth_array[i][j] = 0;
-        }
-    }
-
-
-    // 1. 30프레임으로 깊이 평균 내기
-    float min = 100000, max = 0;
-    int frame_count = 0;
-    while (frame_count < AVG_FRAME) 
+    while (ros::ok())
     {
         // This call waits until a new composite_frame is available
         // composite_frame holds a set of frames. It is used to prevent frame drops
@@ -142,9 +112,10 @@ int main(int argc, char **argv)
         // Returns the number of frames embedded within the composite frame
         int num_of_frames = rs2_embedded_frames_count(frames, &e);
         check_error(e);
-        frame_count += num_of_frames;
 
-        for (int i = 0; i < num_of_frames; ++i)
+        int i;
+        float min, max, dist;
+        for (i = 0; i < num_of_frames; ++i)
         {
             // The retunred object should be released with rs2_release_frame(...)
             rs2_frame* frame = rs2_extract_frame(frames, i, &e);
@@ -155,81 +126,44 @@ int main(int argc, char **argv)
             if (0 == rs2_is_frame_extendable_to(frame, RS2_EXTENSION_DEPTH_FRAME, &e))
                 continue;
 
-            for (int h = 0; h < height; h++) {
-                for (int w = 0; w < width; w++) {
-                    float dist = rs2_depth_frame_get_distance(frame, w, h, &e);
-                    check_error(e);
+            // Get the depth frame's dimensions
+            int width = rs2_get_frame_width(frame, &e);
+            check_error(e);
+            int height = rs2_get_frame_height(frame, &e);
+            check_error(e);
 
-                    depth_array[w][h] += dist;
-                    if (min > dist) {
-                        min = dist;
-                    }
-                    if (max < dist) {
-                        max = dist;
-                    }
+            min = 1000000;
+            max = 0;
+
+            for (int k = width / 2 - 50; k < width / 2 + 50; k++) {
+                float dist_to_center = rs2_depth_frame_get_distance(frame, k, height / 2, &e);
+                check_error(e);
+                if (min > dist_to_center && dist_to_center > 0.20) {
+                    min = dist_to_center;
+                }
+                if (max < dist_to_center) {
+                    max = dist_to_center;
+                }
+                if (k == width / 2) {
+                    dist = dist_to_center;
                 }
             }
+            
+
+            // Print the distance
+            printf("The camera is facing an object %.3f meters away.\n", dist);
+            msg.data = dist;
+
+            printf("Max depth: %.3f\n", max);
+            printf("Min depth: %.3f\n", min);
+            printf("difference : %.3f\n\n", max - min);
+
+            pub.publish(msg);
+
             rs2_release_frame(frame);
         }
 
         rs2_release_frame(frames);
-    }
-
-    for (int i = 0; i < width; i++) {
-        for (int j = 0; j < height; j++) {
-            depth_array[i][j] /= AVG_FRAME;
-        }
-    }
-    printf("The camera is facing an object %.3f meters away.\n", depth_array[width/2][height/2]);
-    printf("min dist : %.3f\n", min);
-    printf("max dist : %.3f\n\n", max);
-
-    // 2. 쓰레숄드 구하기
-
-    float append = 1, var, error, min_var, min_thes;   // 초기에 1m 단위로 최소 분산 찾음. 점점 줄여 나간다.
-
-    while (append > THES_ACC) {
-        for (float thes = min; thes < max; thes += append) {
-            var = 0;
-            for (int i = 0; i < width; i++) {
-                for (int j = 0; j < height; j++) {
-                    error = depth_array[i][j] - thes;
-                    var += error*error;
-                }
-            }
-            var = var / width*height;
-
-            if (thes == min || min_var > var) {
-                min_var = var;
-                min_thes = thes;
-            }
-        }
-        min = min_thes - append;
-        if (min < 0) {
-            min = 0;
-        }
-        max = min_thes + append;
-        append /= 10;
-    }
-
-    printf("쓰레숄드: %f meters\n", min_thes);
-
-    // filtering
-    for (int i = 0; i < width; i++) {
-        for (int j = 0; j < height; j++) {
-            depth_array[i][j] -= min_thes;
-            if (depth_array[i][j] < IGN_DEPTH) {
-                depth_array[i][j] = 0;
-            }
-        }
-    }
-
-    // convert to bw image
-    uint8_t *buffer = new uint8_t[width*height];
-    for (int i = 0; i < width; i++) {
-        for (int j = 0; j < height; j++) {
-            buffer[height*i + j] = (depth_array[i][j] == 0) ? 0 : 255;
-        }
     }
 
     // Stop the pipeline streaming
@@ -243,11 +177,6 @@ int main(int argc, char **argv)
     rs2_delete_device(dev);
     rs2_delete_device_list(device_list);
     rs2_delete_context(ctx);
-
-    for (int i = 0; i < width; i++) {
-        delete [] depth_array[i];
-    }
-    delete [] depth_array;
 
     return EXIT_SUCCESS;
 }
