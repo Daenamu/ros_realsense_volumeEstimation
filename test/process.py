@@ -4,15 +4,6 @@ import cv2
 import math
 from parameters import * 
 
-def head(point, n):
-    for i in range(n):
-        print(point[i])
-    print(".\n.\n.")
-    for i in range(n, 0, -1):
-        print(point[-1-i])
-    print("\n")
-
-
 def process(pipeline):
     try:
         while True:
@@ -88,22 +79,20 @@ def process(pipeline):
             point = list()
             for i in range(60):
                 for j in range(180):
-                    dist = distances[int(y_min+y_unit*i)][int(x_min+x_unit*j)]
+                    x = int(x_min+x_unit*j)
+                    y = int(y_min+y_unit*i)
+                    dist = distances[y][x]
 
                     if dist != 0 and not math.isnan(dist):
                         point.append((i, j, dist))
 
                         if dist < 0:
-                            cv2.circle(color_image, (int(x_min+x_unit*j), int(y_min+y_unit*i)), 1, (0, 0, 255), 1)
+                            cv2.circle(color_image, (x, y), 1, (0, 0, 255), 1)
                         else:
-                            cv2.circle(color_image, (int(x_min+x_unit*j), int(y_min+y_unit*i)), 1, (255, 0, 0), 1)
-
-            # if len(point) > 10:
-            #    head(point, 5)
+                            cv2.circle(color_image, (x, y), 1, (255, 0, 0), 1)
 
             cv2.namedWindow('image', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('image', color_image)
-
             cv2.waitKey(1)
     finally:
         pipeline.stop()
