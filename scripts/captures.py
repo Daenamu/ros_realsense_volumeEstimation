@@ -83,10 +83,20 @@ try:
             continue
 
 
-        # Get distance between center pixel and end pixel
+        # Get pixels per 1 meter
         color_intrin = color_frame.profile.as_video_stream_profile().intrinsics 
-        distance_entire = calculate_distance(aligned_depth_frame, color_intrin, WIDTH_SLICE, HEIGHT//2, WIDTH-WIDTH_SLICE, HEIGHT//2)
-        # print(f"distance of frame is {distance_entire} m")
+
+        if CAMERA_MODE == 'h': # horizontal
+            distance_entire = calculate_distance(aligned_depth_frame, color_intrin, WIDTH_SLICE, HEIGHT//2, WIDTH-WIDTH_SLICE, HEIGHT//2)
+            pixel_by_one_meter = (WIDTH-WIDTH_SLICE*2) / distance_entire
+        
+        else: # vertical
+            distance_entire = calculate_distance(aligned_depth_frame, color_intrin, WIDTH//2, HEIGHT_SLICE, WIDTH//2, HEIGHT-HEIGHT_SLICE)
+            pixel_by_one_meter = (HEIGHT-HEIGHT_SLICE*2) / distance_entire
+
+        pixel_by_one_meter = int(pixel_by_one_meter)
+        # print(distance_entire)
+        # print(f"pixel_by_one_meter is {pixel_by_one_meter} ")
 
 
         # Get distance from each pixels
@@ -137,7 +147,7 @@ try:
     with open('captures.p', 'wb') as file:
         pickle.dump(captures, file)
         pickle.dump(depth_scale, file)
-        pickle.dump(distance_entire, file)
+        pickle.dump(pixel_by_one_meter, file)
 finally:
     # Stop streaming
     pipeline.stop()
