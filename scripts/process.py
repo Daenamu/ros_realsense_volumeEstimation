@@ -89,9 +89,9 @@ if color_image is not None:
         depth_image = cv2.rotate(depth_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
     depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
     image = np.hstack((color_image, depth_colormap))
-    cv2.namedWindow('Panorama View', cv2.WINDOW_NORMAL)
-    cv2.imshow('Panorama View', image)
-    key = cv2.waitKey(0)
+    # cv2.namedWindow('Panorama View', cv2.WINDOW_NORMAL)
+    # cv2.imshow('Panorama View', image)
+    # key = cv2.waitKey(0)
 
 
 # filtering
@@ -162,6 +162,12 @@ for i in range(60):
 pc = pcl.PointCloud(pointcloud)
 pcl.save(pc, 'pc2pcd.pcd')
 
+image = np.hstack((color_image, depth_colormap))
+# cv2.namedWindow('Panorama View', cv2.WINDOW_NORMAL)
+# cv2.imshow('Panorama View', image)
+# cv2.waitKey(0)
+cv2.imwrite('Image.jpg', image)
+
 # DBSCAN    
 df = pd.DataFrame(point_array)
 dbscan = DBSCAN(eps=EPS, min_samples=MIN_SAMPLES, metric='euclidean')
@@ -169,8 +175,36 @@ dbscan_labels = dbscan.fit_predict(df)
 df['dbscan_cluster'] = dbscan_labels
 visualize_cluster_plot(dbscan, df, 'dbscan_cluster', iscenter=False)
 
-image = np.hstack((color_image, depth_colormap))
-# cv2.namedWindow('Panorama View', cv2.WINDOW_NORMAL)
-# cv2.imshow('Panorama View', image)
-# cv2.waitKey(0)
-cv2.imwrite('Image.jpg', image)
+
+# Volume estimating
+distance_values = []
+for i in range(df.shape[0]):    # 각 point에 distance정보 추가
+    distance_values.append(distances[df.loc[i, 'y']][df.loc[i, 'x']])
+df['distance'] = distance_values
+
+
+volumes = {'key': [], 'x_width': [], 'y_width': [], 'height': [], 'volume': []}
+grouped = df.groupby('dbscan_cluster')
+xmin = ymin = 1000
+xmax = ymax = 0
+height = 0
+for key, group in grouped:  # 그룹별로 부피 계산
+    xmin = group['x'].min()
+    ymin = group['y'].min()
+    xmax = group['x'].max()
+    ymax = group['y'].max()
+
+    x_width = (xmax - xmin) / pixel_by_one_meter # measure rectangle box
+    y_width = (ymax - ymin) / pixel_by_one_meter
+    height = group['distance'].sum() / ((xmax-xmin) * (ymax-ymin))
+
+    volume = x_width*100*y_width*100*height*100 # convert to cm unit
+
+    volumes['key'].append(key)
+    volumes['x_width'].append(x_width)
+    volumes['y_width'].append(y_width)
+    volumes['height'].append(height)
+    volumes['volume'].append(volume)
+
+volume_data = pd.DataFrame(volumes)
+print(volume_data)
