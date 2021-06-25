@@ -3,10 +3,9 @@
 import pyrealsense2 as rs
 import numpy as np
 from enum import IntEnum
-
-from datetime import datetime
 import open3d as o3d
-
+import cv2
+import os
 
 class Preset(IntEnum):
     Custom = 0
@@ -19,14 +18,11 @@ class Preset(IntEnum):
 
 def get_intrinsic_matrix(frame):
     intrinsics = frame.profile.as_video_stream_profile().intrinsics
-    out = o3d.camera.PinholeCameraIntrinsic(640, 480, intrinsics.fx,
-                                            intrinsics.fy, intrinsics.ppx,
-                                            intrinsics.ppy)
+    out = o3d.camera.PinholeCameraIntrinsic(640, 480, intrinsics.fx, intrinsics.fy, intrinsics.ppx, intrinsics.ppy)
     return out
 
 
 if __name__ == "__main__":
-
     # Create a pipeline
     pipeline = rs.pipeline()
 
@@ -66,12 +62,14 @@ if __name__ == "__main__":
     flip_transform = [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]
 
     # Streaming loop
-    frame_count = 0
+    first_frame = 1
+    captures = []
+    count = 0
+    for file in os.scandir('captures/'):
+        os.remove(file.path)
+
     try:
         while True:
-
-            dt0 = datetime.now()
-
             # Get frameset of color and depth
             frames = pipeline.wait_for_frames()
 
@@ -81,15 +79,13 @@ if __name__ == "__main__":
             # Get aligned frames
             aligned_depth_frame = aligned_frames.get_depth_frame()
             color_frame = aligned_frames.get_color_frame()
-            intrinsic = o3d.camera.PinholeCameraIntrinsic(
-                get_intrinsic_matrix(color_frame))
+            intrinsic = o3d.camera.PinholeCameraIntrinsic(get_intrinsic_matrix(color_frame))
 
             # Validate that both frames are valid
             if not aligned_depth_frame or not color_frame:
                 continue
 
-            depth_image = o3d.geometry.Image(
-                np.array(aligned_depth_frame.get_data()))
+            depth_image = o3d.geometry.Image(np.array(aligned_depth_frame.get_data()))
             color_temp = np.asarray(color_frame.get_data())
             color_image = o3d.geometry.Image(color_temp)
 
@@ -99,23 +95,36 @@ if __name__ == "__main__":
                 depth_scale=1.0 / depth_scale,
                 depth_trunc=clipping_distance_in_meters,
                 convert_rgb_to_intensity=False)
-            temp = o3d.geometry.PointCloud.create_from_rgbd_image(
-                rgbd_image, intrinsic)
+            temp = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, intrinsic)
             temp.transform(flip_transform)
             pcd.points = temp.points
             pcd.colors = temp.colors
 
-            if frame_count == 0:
+            if first_frame == 1:
                 vis.add_geometry(pcd)
+                first_frame = 0
 
             vis.update_geometry(pcd)
             vis.poll_events()
             vis.update_renderer()
 
-            process_time = datetime.now() - dt0
-            print("FPS: " + str(1 / process_time.total_seconds()))
-            frame_count += 1
+            cv2.namedWindow('Camera View', cv2.WINDOW_NORMAL)
+            cv2.imshow('Camera View', color_temp)
+            key = cv2.waitKey(1)
 
+            # Press esc or 'q' to close the image window
+            if key & 0xFF == ord('q') or key == 27:
+                cv2.destroyAllWindows()
+                print("quit...")
+                break
+
+            if key & 0xFF == ord('y'):
+                captures.append(pcd)
+                print(f"capture{count} has been saved")
+                count += 1
+                o3d.io.write_point_cloud(f"captures/capture{count}.pcd", pcd)
+
+            
     finally:
         pipeline.stop()
         vis.destroy_window()
