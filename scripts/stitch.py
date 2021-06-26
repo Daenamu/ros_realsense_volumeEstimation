@@ -1,23 +1,34 @@
+#!/usr/bin/env python3
+
 import numpy as np
-import pickle
-from parameters import *
 import open3d as o3d
-import matplotlib.pyplot as plt
+import os
+from parameters import *
+import copy
 
-with open('captures2.p', 'rb') as file:
-    captures = pickle.load(file)
+def load_point_clouds():
+    pcds = []
 
-pointclouds = []
+    filepaths = []
+    for file in os.scandir('captures/'):
+        filepaths.append(file.path)
+        filepaths.sort()
 
-for capture in captures:
-    color_image = o3d.geometry.Image(np.array(capture[0]))
-    depth_image = o3d.geometry.Image(np.array(capture[1], dtype='float32'))
-    depth_colormap_image = o3d.geometry.Image(np.array(capture[2]))
+    count = 0
+    for filepath in filepaths:
+        pcd = o3d.io.read_point_cloud(filepath)
+        pcd_tx = copy.deepcopy(pcd).translate((0, INTERVAL * count, 0))
+        pcds.append(pcd_tx)
+        count += 1 
 
-    rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(color_image, depth_colormap_image)
+    return pcds
 
-    pcd = o3d.geometry.Pointcloud.create_from_rgbd_image(rgbd_image, o3d.camera.PinholeCameraIntrinsic(o3d.camera.PinholeCameraIntrinsicParameters.PrimeSenseDefault))
-    pcd.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
+count = 0
+pcds = load_point_clouds()
 
-    pointclouds.append(pcd)
+pcd_combined = o3d.geometry.PointCloud()
+for point_id in range(len(pcds)):
+    pcd_combined += pcds[point_id]
 
+o3d.io.write_point_cloud("multiway_registration.pcd", pcd_combined)
+o3d.visualization.draw_geometries([pcd_combined])

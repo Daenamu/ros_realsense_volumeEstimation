@@ -7,7 +7,7 @@ WIDTH_SLICE     =    50
 HEIGHT_SLICE    =    20
 LOW_CUT_DEPTH   =    0.002             
 HIGH_CUT_DEPTH  =    0.1                 
-INTERVAL        =    0.13                # camera interval
+INTERVAL        =    0.25                # camera interval
 BOX_WIDTH       =    1.8                 # width of rectangle box 
 BOX_HEIGHT      =    0.6                 # height of rectangle box
 DENSITY         =    1000                # 1 meter / Density = sampling unit
