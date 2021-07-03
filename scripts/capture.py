@@ -15,6 +15,10 @@ class Preset(IntEnum):
     HighDensity = 4
     MediumDensity = 5
 
+def depth_camera_get_center_depth(depth_frame, width, height):
+    depth = depth_frame.get_distance(width // 2, height // 2)
+    return depth
+
 
 def get_intrinsic_matrix(frame):
     intrinsics = frame.profile.as_video_stream_profile().intrinsics
