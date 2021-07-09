@@ -44,18 +44,43 @@ def get_distance_from_plane(pcd, model):
 
 def get_volume_of_one_grid(pcd, ind):
     volume = 0
-
-    n = len(ind)
     avg_depth = 0
-
+    n = len(ind)
     inlier = pcd.select_by_index(ind)
 
-    for point in inlier.points:
-        avg_depth += point[2]
+    if n >= 2:
+        for point in inlier.points:
+            avg_depth += point[2]
 
-    avg_depth = avg_depth * 1000 / n # mm unit
+        avg_depth = avg_depth * 1000 / n # mm unit
 
-    volume = avg_depth * SAMPLING_UNIT * SAMPLING_UNIT * 1000 * 1000
+        volume = avg_depth * SAMPLING_UNIT * SAMPLING_UNIT * 1000 * 1000
+
+    else:
+        min_x = 1000
+        min_y = 1000
+        max_x = 0
+        max_y = 0
+        for point in inlier.points:
+            avg_depth += point[2]
+            if min_x > point[0]:
+                min_x = point[0]
+            if min_y > point[1]:
+                min_y = point[1]
+            if max_x < point[0]:
+                max_x = point[0]
+            if max_y < point[1]:
+                max_y = point[1]
+
+        avg_depth = avg_depth * 1000 / n
+
+        grid_x = math.floor(min_x / GRID_UNIT) * GRID_UNIT
+        grid_y = math.floor(min_y / GRID_UNIT) * GRID_UNIT
+
+        width = max_x-grid_x if min_x-grid_x < grid_x+GRID_UNIT-max_x else grid_x+GRID_UNIT-min_x
+        height = max_y-grid_y if min_y-grid_y < grid_y+GRID_UNIT-max_y else grid_y+GRID_UNIT-min_y
+
+        volume = avg_depth * width * height * 1000 * 1000
 
     return volume
 
